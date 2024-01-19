@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>슈팅 게임 with 장애물, 플레이어 이동, 총알</title>
+    <style>
+        /* 게임 캔버스 스타일 */
+        #gameCanvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <button onclick="restartGame()">재시작</button>
+
+    <script>
+        // 캔버스 요소 가져오기
+        var canvas = document.getElementById("gameCanvas");
+        var context = canvas.getContext("2d");
+
+        // 장애물 배열
+        var obstacles = [];
+
+        // 총알 배열
+        var bullets = [];
+
+        // 플레이어 객체 생성
+        var player = {
+            x: 400, // 플레이어 초기 X 좌표
+            y: 550, // 플레이어 초기 Y 좌표
+            width: 50, // 플레이어 너비
+            height: 50, // 플레이어 높이
+            color: "blue", // 플레이어 색상
+            speed: 5, // 플레이어 속도
+            draw: function() { // 플레이어 그리기 함수
+                context.fillStyle = this.color;
+                context.fillRect(this.x, this.y, this.width, this.height);
+            },
+            update: function() { // 플레이어 업데이트 함수
+                // 플레이어 이동
+                if (keys.ArrowLeft && this.x > 0) {
+                    this.x -= this.speed;
+                }
+                if (keys.ArrowRight && this.x + this.width < canvas.width) {
+                    this.x += this.speed;
+                }
+
+                // 총알 발사
+                if (keys.Space) {
+                    this.shoot();
+                }
+            },
+            shoot: function() { // 총알 발사 함수
+                var bullet = {
+                    x: this.x + this.width / 2 - 2.5, // 총알 X 좌표
+                    y: this.y, // 총알 Y 좌표
+                    width: 5, // 총알 너비
+                    height: 10, // 총알 높이
+                    color: "yellow", // 총알 색상
+                    speed: 10, // 총알 속도
+                    draw: function() { // 총알 그리기 함수
+                        context.fillStyle = this.color;
+                        context.fillRect(this.x, this.y, this.width, this.height);
+                    },
+                    update: function() { // 총알 업데이트 함수
+                        this.y -= this.speed;
+                    }
+                };
+                bullets.push(bullet);
+            }
+        };
+
+        // 키 입력 상태 객체
+        var keys = {};
+
+        // 키 입력 이벤트 리스너
+        document.addEventListener("keydown", function(event) {
+            keys[event.code] = true;
+        });
+
+        document.addEventListener("keyup", function(event) {
+            keys[event.code] = false;
+        });
+
+        // 장애물 생성 함수
+        function createObstacle() {
+            var obstacle = {
+                x: Math.random() * (canvas.width - 50), // 장애물 X 좌표
+                y: -50, // 장애물 Y 좌표
+                width: 50, // 장애물 너비
+                height: 50, // 장애물 높이
+                color: "red", // 장애물 색상
+                speed: 3 + Math.random() * 2, // 장애물 초기 속도 (3에서 5 사이의 랜덤값)
+                draw: function() { // 장애물 그리기 함수
+                    context.fillStyle = this.color;
+                    context.fillRect(this.x, this.y, this.width, this.height);
+                },
+                update: function() { // 장애물 업데이트 함수
+                    this.y += this.speed;
+                    this.speed += 0.02; // 시간이 지남에 따라 속도가 0.02씩 증가
+                }
+            };
+            obstacles.push(obstacle);
+        }
+
+        // 게임 루프
+        function gameLoop() {
+            // 캔버스 초기화
+            context.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 장애물 생성
+            if (Math.random() < 0.02) {
+                createObstacle();
+            }
+
+            // 장애물 그리기 및 업데이트
+            for (var i = 0; i < obstacles.length; i++) {
+                obstacles[i].draw();
+                obstacles[i].update();
+
+                // 장애물이 플레이어와 충돌하는지 확인
+                if (checkCollision(player, obstacles[i])) {
+                    // 게임 오버 시 게임 루프 중지
+                    cancelAnimationFrame(animationId);
+                    return;
+                }
+
+                // 화면 밖으로 벗어난 장애물 제거
+                if (obstacles[i].y > canvas.height) {
+                    obstacles.splice(i, 1);
+                    i--;
+                }
+            }
+
+            // 총알 그리기 및 업데이트
+            for (var j = 0; j < bullets.length; j++) {
+                bullets[j].draw();
+                bullets[j].update();
+
+                // 총알이 장애물과 충돌하는지 확인
+                for (var k = 0; k < obstacles.length; k++) {
+                    if (checkCollision(bullets[j], obstacles[k])) {
+                        // 충돌 시 총알과 장애물 제거
+                        bullets.splice(j, 1);
+                        j--;
+                        obstacles.splice(k, 1);
+                        k--;
+                        break;
+                    }
+                }
+
+                // 화면 밖으로 벗어난 총알 제거
+                if (bullets[j] && bullets[j].y < 0) {
+                    bullets.splice(j, 1);
+                    j--;
+                }
+            }
+
+            // 플레이어 그리기
+            player.draw();
+
+            // 플레이어 업데이트
+            player.update();
+
+            // 게임 루프 반복 호출
+            var animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // 충돌 검사 함수
+        function checkCollision(obj1, obj2) {
+            if (obj1.x < obj2.x + obj2.width &&
+                obj1.x + obj1.width > obj2.x &&
+                obj1.y < obj2.y + obj2.height &&
+                obj1.y + obj1.height > obj2.y) {
+                return true; // 충돌함
+            }
+            return false; // 충돌하지 않음
+        }
+
+        // 게임 재시작 함수
+        function restartGame() {
+            location.reload();
+        }
+
+        // 게임 루프 시작
+        gameLoop();
+    </script>
+</body>
+</html>
